@@ -1,36 +1,33 @@
 # Superheater
-Perfect for training magic and smithing!
 
-## Features
-- Superheats all bars for magic and smithing xp
-- Up to 180k xp/h total
-- Optional GUI
-- Perfect for accounts without lunar spell-book
-- Any bank location supported
+Superheater is designed for efficient magic and smithing training, offering a specialized alternative to traditional methods. It focuses on enhancing xp rates in superheating, with the ability to handle all bars for both magic and smithing experience, reaching up to 180k xp/h in total.
 
-## Requirements
-- Equipped any Fire Staff for unlimited Fire Runes
-- 32-Bit Native OSRS Client
-- 43 magic for casting superheat
-- Smithing level for selected bar type
-- Start script close to selected bank, default grand exchange
-- For best experience have the ores and nature rune visable without scroll
+## Quickstart
+- **Client**: 32-Bit Native OSRS
+- **Location**: Start near your selected bank (default: Grand Exchange)
+- **Bank items**: Fire Staff, ores, and nature runes (best if no scroll needed)
 
-## Known Issues
-- Rarely when starting script, it will deposit all items and attempt to cast spell, just restart.
+## Installation
+*Note*: Replace `USERNAME` with your Windows username in the file paths.
 
-## Limitations
-- Does not check if you have required Smithing/Magic level
-- Does not check if you have equipped staff or gold gauntlets (gold bar)
+**Direct .simba Download**:
+1. Access the raw file [here](https://github.com/TazE-scripts/Superheater/raw/main/TazE_Superheater.simba).
+2. Right-click > `Save as...` or press `Ctrl + S`.
+3. Save to `C:\Users\USERNAME\AppData\Local\Simba\Scripts`.
 
-## Future implementation Wishlist
-- Set different efficiency modes
-- Profit/Loss calculations
-- Check for Staff & Gold gauntlets (if gold bar)
+**Zip Download**:
+1. Go to the [repository](https://github.com/TazE-scripts/Superheater).
+2. Click `Code` > `Download ZIP`.
+3. Unzip and move `Superheater` to the Simba scripts directory.
 
-## Recommended bars
-- Check out the most cost efficient bars at https://oldschool.runescape.wiki/w/Superheat_Item#Cost_effectiveness
-- Personal recommendation is  Iron Bar which will net 3m smithing xp (Level 15-84)  with 99 magic without profit/loss
-- Alternative Bar is Gold Bar with Gold Gauntlets which will net you 99 smithing with 99 magic but with a loss of 40m+
+## Crafting Tip
+- For cost efficiency, consider Iron Bars which can provide 3m smithing xp (level 15-84) with 99 magic, potentially without profit/loss.
+- For experience-focused training, Gold Bars with Gold Gauntlets are recommended for reaching 99 smithing with 99 magic, albeit with an estimated loss of over 40m.
 
-Special thanks to @sebastiaan for the lunar plank_make script which was the initial stepping stones for this script.
+## Script Goals
+- Implement different efficiency modes
+- Develop profit/loss calculations
+- Add checks for Staff & Gold gauntlets (if gold bar is selected)
+
+## Credits
+A nod to @sebastiaan and their lunar plank_make script, which laid the groundwork for this Superheater script.
