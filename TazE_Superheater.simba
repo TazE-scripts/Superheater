@@ -1,4 +1,3 @@
-{$DEFINE SCRIPT_ID := ''}
 {$DEFINE SCRIPT_REVISION := '3.0'}
 {$I SRL-T/osr.simba}
 {$I WaspLib/osr.simba}
@@ -14,9 +13,10 @@ const
 
 //=============DEFAULT SETTINGS==============
 var
-  CurrentTask: string                          = 'Iron';
-  ENABLE_GUI: Boolean                          = True;
-  MOUSEOVERRIDE: Int32                         = 15; // Set movement
+  CurrentTask: string                   = 'Iron'; // Select bar
+  USE_COALBAG: Boolean                  = False;  // Steel,Mithril,Adamantite,Runite
+  USE_GUI: Boolean                      = True;   // Should use Wasp GUI
+  MOUSEOVERRIDE: Int32                  = 15;     // Set movement
 
 const
   // Timing Constants (milliseconds)
@@ -45,14 +45,23 @@ type
     NatureRune, PrimaryOre,
     SecondaryOre, Bar: TRSBankItem;
     SuperHeating: Boolean;
+    CoalBag: TRSBankItem;
     ItemCount: Integer;
   end;
+
+function GetOreQuantity(useCoalBag: Boolean; quantityWithoutBag, quantityWithBag: Integer): Integer;
+begin
+  if useCoalBag then Result := quantityWithBag
+  else Result := quantityWithoutBag;
+end;
+
 
 procedure TSuperHeater.SetupItems();
 begin
   Self.Spell := ERSSpell.SUPERHEAT_ITEM;
-  NatureRune :=  TRSBankItem.Setup('Nature rune', -1);
+  NatureRune := TRSBankItem.Setup('Nature rune', -1);
   ItemCount := -1;
+  if USE_COALBAG then CoalBag := TRSBankItem.Setup('Coal bag', 1);
 
   if CurrentTask = 'Bronze' then
   begin
@@ -75,8 +84,8 @@ begin
   else if CurrentTask = 'Steel' then
   begin
     Bar := TRSBankItem.Setup('Steel bar', -1);
-    PrimaryOre := TRSBankItem.Setup('Iron ore', 9);
-    SecondaryOre := TRSBankItem.Setup('Coal', 18);
+    PrimaryOre := TRSBankItem.Setup('Iron ore', GetOreQuantity(USE_COALBAG, 9, 17));
+    SecondaryOre := TRSBankItem.Setup('Coal', GetOreQuantity(USE_COALBAG, 18, -1));
   end
   else if CurrentTask = 'Gold' then
   begin
@@ -87,20 +96,20 @@ begin
   else if CurrentTask = 'Mithril' then
   begin
     Bar := TRSBankItem.Setup('Mithril bar', -1);
-    PrimaryOre := TRSBankItem.Setup('Mithril ore', 5);
-    SecondaryOre := TRSBankItem.Setup('Coal', 20);
+    PrimaryOre := TRSBankItem.Setup('Mithril ore', GetOreQuantity(USE_COALBAG, 5, 10));
+    SecondaryOre := TRSBankItem.Setup('Coal', GetOreQuantity(USE_COALBAG, 20, -1));
   end
   else if CurrentTask = 'Adamantite' then
   begin
     Bar := TRSBankItem.Setup('Adamantite bar', -1);
-    PrimaryOre := TRSBankItem.Setup('Adamantite ore', 3);
-    SecondaryOre := TRSBankItem.Setup('Coal', 18);
+    PrimaryOre := TRSBankItem.Setup('Adamantite ore', GetOreQuantity(USE_COALBAG, 3, 7));
+    SecondaryOre := TRSBankItem.Setup('Coal', GetOreQuantity(USE_COALBAG, 18, -1));
   end
   else if CurrentTask = 'Runite' then
   begin
     Bar := TRSBankItem.Setup('Runite bar', -1);
-    PrimaryOre := TRSBankItem.Setup('Runite ore', 3);
-    SecondaryOre := TRSBankItem.Setup('Coal', 24);
+    PrimaryOre := TRSBankItem.Setup('Runite ore', GetOreQuantity(USE_COALBAG, 3, 5));
+    SecondaryOre := TRSBankItem.Setup('Coal', GetOreQuantity(USE_COALBAG, 24, -1));
   end
   else
   begin
@@ -178,6 +187,17 @@ begin
   if not Inventory.ContainsItem(Self.NatureRune.Item) then
     Self.Withdraw(Self.NatureRune);
 
+  if USE_COALBAG then
+  begin
+  if not Inventory.ContainsItem(Self.CoalBag.Item) then
+    Self.Withdraw(Self.CoalBag);
+
+  if Inventory.ContainsItem(Self.CoalBag.Item) then
+  begin
+    Waituntil(Inventory.ClickItem(Self.CoalBag.Item, 'Empty'), DEPOSIT_WAIT_MIN, DEPOSIT_WAIT_MAX);
+    Waituntil(Inventory.ClickItem(Self.CoalBag.Item, 'Fill'), DEPOSIT_WAIT_MIN, DEPOSIT_WAIT_MAX);
+  end
+  end
   if SecondaryOre.Item <> '' then
   begin
     Self.Withdraw(Self.PrimaryOre);
@@ -291,9 +311,10 @@ end;
 
 function TSuperHeater.Terminate(): Boolean; override;
 begin
+  Self.Bar.Noted := True;
   if inherited then
     for 0 to 5 do
-      if Result := Bank.WithdrawItem(BankTab, [self.Bar.Item, BANK_WITHDRAW_ALL, True], True) then
+      if Result := Self.Withdraw(Self.Bar) then
         Break;
   SuperHeating
 end;
@@ -336,11 +357,14 @@ var
 type
   TSuperHeaterConfig = record(TScriptForm)
     BarSelector: TLabeledCombobox;
+    CoalBagCheck: TCheckBox;
+    Instructions: TLabel;
   end;
 
 procedure TSuperHeaterConfig.StartScript(sender: TObject); override;
 begin
   CurrentTask := Self.BarSelector.getText();
+  USE_COALBAG := Self.CoalBagCheck.IsChecked();
   inherited;
 end;
 
@@ -366,6 +390,25 @@ begin
     SetItemIndex(1); // default to the first item
   end;
 
+  with Self.CoalBagCheck do
+  begin
+    Create(tab);
+    SetCaption('Use Coal bag');
+    SetLeft(Self.BarSelector.GetRight() + TControl.AdjustToDPI(25));
+    SetTop(Self.BarSelector.GetTop() + TControl.AdjustToDPI(20));
+    SetChecked(USE_COALBAG);
+    SetHint('Optional if using Steel, Mithril, Adamantite, Runite');
+  end;
+
+  with Self.Instructions do
+  begin
+    Create(tab);
+    SetCaption('Instructions: Start with empty inventory and items visable in bank without scroll'
+    + LINEENDING + 'Optionally use coal bag if using Steel, Mithril, Adamantite, Runite');
+    SetLeft(Self.BarSelector.GetLeft() + TControl.AdjustToDPI(0));
+    SetTop(Self.BarSelector.GetBottom() + TControl.AdjustToDPI(20));
+  end;
+
   Self.CreateVersionPanel(tab);
   Self.CreateAntibanManager();
   Self.CreateBankSettings();
@@ -379,7 +422,7 @@ var
   SuperHeaterConfig: TSuperHeaterConfig;
 
 begin
-  if ENABLE_GUI then
+  if USE_GUI then
     SuperHeaterConfig.Run();
 
   SuperHeater.Run(WLSettings.MaxActions, WLSettings.MaxTime);
