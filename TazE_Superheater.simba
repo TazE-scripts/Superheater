@@ -1,9 +1,9 @@
 {$DEFINE SCRIPT_ID := ''}
-{$DEFINE SCRIPT_REVISION := '2.1'}
+{$DEFINE SCRIPT_REVISION := '3.0'}
 {$I SRL-T/osr.simba}
 {$I WaspLib/osr.simba}
 
-begin
+begin // Set default account
   Login.PlayerIndex := 0;
 end;
 
@@ -21,16 +21,12 @@ var
 const
   // Timing Constants (milliseconds)
   MAGIC_OPEN_WAIT_MIN = 800;
-  MAGIC_OPEN_WAIT_MAX = 2000;
+  MAGIC_OPEN_WAIT_MAX = 5000;
   DEPOSIT_WAIT_MIN = 500;
   DEPOSIT_WAIT_MAX = 2000;
   CAST_XP_WAIT = 2000;
 
 type
-  TOre = record
-    Item: TRSItem;
-    Quantity: Int32;
-  end;
   EState = (
   LEVEL_UP,
   CLOSE_CONTEXT,
@@ -46,10 +42,8 @@ type
   TSuperHeater = record(TBaseBankScript)
     State: EState;
     Spell: ERSSpell;
-    NatureRune: TRSItem;
-    PrimaryOre: TOre;
-    SecondaryOre: TOre;
-    Bar: TRSItem;
+    NatureRune, PrimaryOre,
+    SecondaryOre, Bar: TRSBankItem;
     SuperHeating: Boolean;
     ItemCount: Integer;
   end;
@@ -57,72 +51,56 @@ type
 procedure TSuperHeater.SetupItems();
 begin
   Self.Spell := ERSSpell.SUPERHEAT_ITEM;
-  NatureRune := 'Nature rune';
+  NatureRune :=  TRSBankItem.Setup('Nature rune', -1);
   ItemCount := -1;
 
   if CurrentTask = 'Bronze' then
   begin
-    Bar := 'Bronze bar';
-    PrimaryOre.Item := 'Tin ore';
-    PrimaryOre.Quantity := 13;
-    SecondaryOre.Item := 'Copper ore';
-    SecondaryOre.Quantity := 13;
+    Bar := TRSBankItem.Setup('Bronze bar', -1);
+    PrimaryOre := TRSBankItem.Setup('Tin ore', 13);
+    SecondaryOre := TRSBankItem.Setup('Copper ore', 13);
   end
   else if CurrentTask = 'Iron' then
   begin
-    Bar := 'Iron bar';
-    PrimaryOre.Item := 'Iron ore';
-    PrimaryOre.Quantity := 27;
-    SecondaryOre.Item := '';
-    SecondaryOre.Quantity := 0;
+    Bar := TRSBankItem.Setup('Iron bar', -1);
+    PrimaryOre := TRSBankItem.Setup('Iron ore', 27);
+    SecondaryOre := TRSBankItem.Setup('', 0);  // No secondary ore
   end
   else if CurrentTask = 'Silver' then
   begin
-    Bar := 'Silver bar';
-    PrimaryOre.Item := 'Silver ore';
-    PrimaryOre.Quantity := 27;
-    SecondaryOre.Item := '';
-    SecondaryOre.Quantity := 0;
+    Bar := TRSBankItem.Setup('Silver bar', -1);
+    PrimaryOre := TRSBankItem.Setup('Silver ore', 27);
+    SecondaryOre := TRSBankItem.Setup('', 0);  // No secondary ore
   end
   else if CurrentTask = 'Steel' then
   begin
-    Bar := 'Steel bar';
-    PrimaryOre.Item := 'Iron ore';
-    PrimaryOre.Quantity := 9;
-    SecondaryOre.Item := 'Coal';
-    SecondaryOre.Quantity := 18;
+    Bar := TRSBankItem.Setup('Steel bar', -1);
+    PrimaryOre := TRSBankItem.Setup('Iron ore', 9);
+    SecondaryOre := TRSBankItem.Setup('Coal', 18);
   end
   else if CurrentTask = 'Gold' then
   begin
-    Bar := 'Gold bar';
-    PrimaryOre.Item := 'Gold ore';
-    PrimaryOre.Quantity := 27;
-    SecondaryOre.Item := '';
-    SecondaryOre.Quantity := 0;
+    Bar := TRSBankItem.Setup('Gold bar', -1);
+    PrimaryOre := TRSBankItem.Setup('Gold ore', 27);
+    SecondaryOre := TRSBankItem.Setup('', 0);  // No secondary ore
   end
   else if CurrentTask = 'Mithril' then
   begin
-    Bar := 'Mithril bar';
-    PrimaryOre.Item := 'Mithril ore';
-    PrimaryOre.Quantity := 5;
-    SecondaryOre.Item := 'Coal';
-    SecondaryOre.Quantity := 20;
+    Bar := TRSBankItem.Setup('Mithril bar', -1);
+    PrimaryOre := TRSBankItem.Setup('Mithril ore', 5);
+    SecondaryOre := TRSBankItem.Setup('Coal', 20);
   end
   else if CurrentTask = 'Adamantite' then
   begin
-    Bar := 'Adamantite bar';
-    PrimaryOre.Item := 'Adamantite ore';
-    PrimaryOre.Quantity := 3;
-    SecondaryOre.Item := 'Coal';
-    SecondaryOre.Quantity := 18;
+    Bar := TRSBankItem.Setup('Adamantite bar', -1);
+    PrimaryOre := TRSBankItem.Setup('Adamantite ore', 3);
+    SecondaryOre := TRSBankItem.Setup('Coal', 18);
   end
   else if CurrentTask = 'Runite' then
   begin
-    Bar := 'Runite bar';
-    PrimaryOre.Item := 'Runite ore';
-    PrimaryOre.Quantity := 3;
-    SecondaryOre.Item := 'Coal';
-    SecondaryOre.Quantity := 24;
+    Bar := TRSBankItem.Setup('Runite bar', -1);
+    PrimaryOre := TRSBankItem.Setup('Runite ore', 3);
+    SecondaryOre := TRSBankItem.Setup('Coal', 24);
   end
   else
   begin
@@ -143,58 +121,77 @@ begin
   inherited;
   Self.RSW.SetupNamedRegion();
   Self.SetupItems();
+  WLSettings.Antiban.Enabled        := True;
+  WLSettings.Breaks                 := True;
+  WLSettings.Sleep.Enabled          := True;
+  WLSettings.RemoteInput.Enabled    := True;
+  WLSettings.RemoteInput.HUDReport  := False;
   if MOUSEOVERRIDE <> 0 then
     Mouse.Speed := MOUSEOVERRIDE;
-  // Open bank and deposit all items initially to avoid wrong ores in inventory
-  if Bank.IsOpen() or Bank.Open() then
+
+  if Magic.Open and Magic.IsFiltered then WaitUntil(Magic.DisableFilters, 1000, 10000);
+
+  if Options.GetBrightnessLevel < 100 then
   begin
-    Bank.DepositAll();
+    Options.SetMaxBrightness;
+    WriteLn('Current brightness level: ' + IntToStr(Options.GetBrightnessLevel));
+  end
+
+  if RSClient.DetectClientMode() <> ERSClientMode.FIXED then
+  begin
+    WriteLn('The client must be running in FIXED mode. Please change the mode and restart the script.');
+    TerminateScript();
   end;
 end;
 
-procedure TSuperHeater.CastSpell();
+function TSuperHeater.CastSpell(): Boolean;
 begin
-  if ItemCount > 0 then
+  Result := False; // Default result
+  if ItemCount <= 0 then Exit;
+
+  XPBar.EarnedXP();
+
+  // Exit early if unable to cast the spell or if the inventory doesn't open
+  if not (Magic.CastSpell(Self.Spell) and WaitUntil(Inventory.IsOpen, MAGIC_OPEN_WAIT_MIN, MAGIC_OPEN_WAIT_MAX)) then Exit;
+  // Special cases of antiban double-click
+  if Magic.IsSelected(Self.Spell) and not Inventory.IsOpen then Magic.Deselect;
+  // Exit early if unable to click on the primary ore item
+  if not (Inventory.ClickItem(PrimaryOre.Item, '>') and WaitUntil(Magic.IsOpen(), MAGIC_OPEN_WAIT_MIN, MAGIC_OPEN_WAIT_MAX)) then Exit;
+
+  // Check for XP gain and decrement ItemCount if successful
+  if WaitUntil(XPBar.EarnedXP(), MAGIC_OPEN_WAIT_MIN, MAGIC_OPEN_WAIT_MAX) then
   begin
-    if Magic.CastSpell(Self.Spell) then
-      WaitUntil(Inventory.IsOpen, MAGIC_OPEN_WAIT_MIN, MAGIC_OPEN_WAIT_MAX);
-
-    if Inventory.ClickItem(PrimaryOre.Item, '>') then
-    begin
-      SuperHeating := true;
-      WaitUntil(Magic.IsOpen(), MAGIC_OPEN_WAIT_MIN, MAGIC_OPEN_WAIT_MAX);
-      SuperHeating := XPBar.WaitXP(CAST_XP_WAIT);
-
-      Dec(ItemCount);  // Decrement the counter
-
-      if ItemCount <= 0 then
-        SuperHeating := false; // Don't attempt to cast again
-    end;
+    Result := True;
+    Dec(ItemCount);
   end;
-end;
 
+  // Update SuperHeating status
+  Self.SuperHeating := Result;
+
+  // Handle case when out of items
+  if ItemCount <= 0 then
+    Self.SuperHeating := False;
+end;
 
 procedure TSuperHeater.WithdrawMaterial();
 begin
-  self.SuperHeating := false;  // Reset the flag
-  if not Inventory.ContainsItem(Self.NatureRune) then
-    Self.Withdraw([self.NatureRune, -1, False]);
+  if not Inventory.ContainsItem(Self.NatureRune.Item) then
+    Self.Withdraw(Self.NatureRune);
 
   if SecondaryOre.Item <> '' then
   begin
-    Self.Withdraw([PrimaryOre.Item, PrimaryOre.Quantity, False]);
-    Self.Withdraw([SecondaryOre.Item, SecondaryOre.Quantity, False]);
+    Self.Withdraw(Self.PrimaryOre);
+    Self.Withdraw(Self.SecondaryOre);
   end
   else
   begin
-    Self.Withdraw([PrimaryOre.Item, PrimaryOre.Quantity, False]);
+    Self.Withdraw(Self.PrimaryOre);
   end;
 end;
 
-
 function TSuperHeater.HasRequiredItems(): Boolean;
 begin
-  Result := Inventory.ContainsItem(self.NatureRune);
+  Result := Inventory.ContainsItem(self.NatureRune.Item);
 
   if Result then
     Result := Inventory.ContainsItem(self.PrimaryOre.Item);
@@ -205,7 +202,7 @@ end;
 
 procedure TSuperHeater.CollectRequiredItems();
 begin
-  Self.HandleCollectBox([self.NatureRune]);
+  Self.HandleCollectBox([self.NatureRune.Item]);
   Self.HandleCollectBox([self.PrimaryOre.Item]);
 
   if self.SecondaryOre.Item <> '' then
@@ -214,21 +211,16 @@ end;
 
 function TSuperHeater.Deposit(): Boolean;
 var
-  itemCount: Int32 := Inventory.CountItem (Bar);
-  depositItem: TRSBankItem;
+  itemCount: Int32 := Inventory.CountItem(Bar.Item);
 begin
-  depositItem.Item := Bar;
-  depositItem.Quantity := PrimaryOre.Quantity;
-
-  if Result := bank.DepositItem(depositItem, True) then
+  if Result := bank.DepositItem(Bar, True) then
   begin
-    if WaitUntil(Inventory.CountItem(Bar) = 0, DEPOSIT_WAIT_MIN, DEPOSIT_WAIT_MAX) then
+    if WaitUntil(Inventory.CountItem(Bar.Item) = 0, DEPOSIT_WAIT_MIN, DEPOSIT_WAIT_MAX) then
     begin
       Self.TotalActions += itemCount;
     end;
   end;
 end;
-
 
 function TSuperHeater.HandleActivity(): EState;
 begin
@@ -243,7 +235,7 @@ end;
 
 function TSuperHeater.HandleBank(): EState;
 begin
-  if Inventory.ContainsItem(Self.Bar) then
+  if Inventory.ContainsItem(Self.Bar.Item) then
     Result := EState.DEPOSIT_PRODUCT
   else if BankEmpty or HasRequiredItems() then
     Result := EState.CLOSE_INTERFACE
@@ -280,6 +272,7 @@ begin
 
   if MainScreen.HasInterface() then
   begin
+    Self.SuperHeating := false;  // Reset the flag
     if Bank.IsOpen() then
       Exit(HandleBank());
 
@@ -300,7 +293,7 @@ function TSuperHeater.Terminate(): Boolean; override;
 begin
   if inherited then
     for 0 to 5 do
-      if Result := Bank.WithdrawItem(BankTab, [self.Bar, BANK_WITHDRAW_ALL, True], True) then
+      if Result := Bank.WithdrawItem(BankTab, [self.Bar.Item, BANK_WITHDRAW_ALL, True], True) then
         Break;
   SuperHeating
 end;
