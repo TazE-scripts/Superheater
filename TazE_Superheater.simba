@@ -1,4 +1,4 @@
-{$DEFINE SCRIPT_REVISION := '3.0'}
+{$DEFINE SCRIPT_REVISION := '3.1'}
 {$I SRL-T/osr.simba}
 {$I WaspLib/osr.simba}
 
@@ -47,6 +47,7 @@ type
     SuperHeating: Boolean;
     CoalBag: TRSBankItem;
     ItemCount: Integer;
+    SpellCastFailed: Integer;
   end;
 
 function GetOreQuantity(useCoalBag: Boolean; quantityWithoutBag, quantityWithBag: Integer): Integer;
@@ -153,6 +154,21 @@ begin
   end;
 end;
 
+function TSuperHeater.ChatMissingCoal(): Boolean;
+begin
+  Result := False;
+
+  if SpellCastFailed >= 3 then
+  begin
+    if not ChatButtons.GetButton(ERSChatButton.GAME_CHAT).Enabled() then
+      WaitUntil(ChatButtons.Open(ERSChatButton.GAME_CHAT), 500, 3000);
+
+    if Chat.FindMessage('heaps of coal') then
+      Result := True;
+  end;
+end;
+
+
 function TSuperHeater.CastSpell(): Boolean;
 begin
   Result := False; // Default result
@@ -172,7 +188,10 @@ begin
   begin
     Result := True;
     Dec(ItemCount);
-  end;
+    Self.SpellCastFailed := 0; // Reset on successful XP gain
+  end
+  else
+    Inc(Self.SpellCastFailed); // Increment if XP gain fails
 
   // Update SuperHeating status
   Self.SuperHeating := Result;
@@ -211,6 +230,7 @@ end;
 
 function TSuperHeater.HasRequiredItems(): Boolean;
 begin
+  Wait(DEPOSIT_WAIT_MIN); // Deposit/withdraw to fast, fails check
   Result := Inventory.ContainsItem(self.NatureRune.Item);
 
   if Result then
@@ -285,14 +305,32 @@ begin
     Result := EState.HANDLE_COLLECT;
 end;
 
+function TSuperHeater.SafeBankOpen(): Boolean;
+begin
+  if Magic.IsSelected(Self.Spell) then
+  begin
+    Magic.Deselect();
+  end;
+  Result := Bank.WalkOpen();
+end;
+
 function TSuperHeater.GetState(): EState;
 begin
   if WL.Activity.IsFinished() or Chat.LeveledUp() then
     Exit(HandleActivity());
 
+  // Check for consecutive spell casting failures and missing coal condition
+  if (Self.SpellCastFailed >= 3) and Self.ChatMissingCoal() and Self.SafeBankOpen() then
+  begin
+    Self.SuperHeating := false; // Reset the flag
+    Bank.DepositAll(); // Just start over from scratch
+    Self.SpellCastFailed := 0; // Reset the counter after handling
+  end;
+
+  // Handle different interfaces
   if MainScreen.HasInterface() then
   begin
-    Self.SuperHeating := false;  // Reset the flag
+    Self.SuperHeating := false; // Reset the flag
     if Bank.IsOpen() then
       Exit(HandleBank());
 
@@ -302,12 +340,13 @@ begin
     Exit(EState.CLOSE_INTERFACE);
   end;
 
+  // Check if there are no items left to process
   if ItemCount <= 0 then
     Exit(EState.OPEN_BANK);
 
+  // Default to casting spell if other conditions are not met
   Exit(EState.CAST_SPELL);
 end;
-
 
 function TSuperHeater.Terminate(): Boolean; override;
 begin
@@ -317,15 +356,6 @@ begin
       if Result := Self.Withdraw(Self.Bar) then
         Break;
   SuperHeating
-end;
-
-procedure TSuperHeater.SafeBankOpen();
-begin
-  if Magic.IsSelected(Self.Spell) then
-  begin
-    Magic.Deselect();
-  end;
-  Bank.WalkOpen();
 end;
 
 procedure TSuperHeater.Run(MaxActions: Int32; MaxTime: Int64);
