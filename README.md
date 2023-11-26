@@ -37,7 +37,6 @@ Open Simba and add new package according to the following images: https://github
 
 ## Script Goals
 - Implement different efficiency modes
-- Develop profit/loss calculations
 - Add checks for Staff & Gold gauntlets (if gold bar is selected)
 
 ## Credits
