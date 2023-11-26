@@ -10,6 +10,7 @@ Superheater is designed for efficient magic and smithing training, offering a sp
 ## Installation
 *Note*: Replace `USERNAME` with your Windows username in the file paths.
 
+### **Alternative installation method 1**
 **Add script as package**
 Open Simba and add new package according to the following images: https://github.com/TazE-scripts/Superheater
 
@@ -18,12 +19,13 @@ Open Simba and add new package according to the following images: https://github
 
 ![step_2](https://github.com/TazE-scripts/Superheater/assets/47065797/d47a3cd5-974a-4ca4-a9bf-b1bfb65f0dfa)
 
-
+### **Alternative installation method 2**
 **Direct .simba Download**:
 1. Access the raw file [here](https://github.com/TazE-scripts/Superheater/raw/main/TazE_Superheater.simba).
 2. Right-click > `Save as...` or press `Ctrl + S`.
 3. Save to `C:\Users\USERNAME\AppData\Local\Simba\Scripts`.
 
+### **Alternative installation method 3**
 **Zip Download**:
 1. Go to the [repository](https://github.com/TazE-scripts/Superheater).
 2. Click `Code` > `Download ZIP`.
