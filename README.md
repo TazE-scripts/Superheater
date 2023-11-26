@@ -15,7 +15,8 @@ Open Simba and add new package according to the following images: https://github
 
 ![step_1](https://github.com/TazE-scripts/Superheater/assets/47065797/1dce0047-f391-43a7-b20b-e9dfb13dc2f9)
 
-![step_2](https://github.com/TazE-scripts/Superheater/assets/47065797/856d1402-21d5-4968-8ec0-aa1c184f4842)
+
+![step_2](https://github.com/TazE-scripts/Superheater/assets/47065797/d47a3cd5-974a-4ca4-a9bf-b1bfb65f0dfa)
 
 
 **Direct .simba Download**:
