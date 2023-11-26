@@ -1,8 +1,8 @@
 // The package name to install under. 
-name=SRL
+name=TazE_SuperHeater
 // The path to install into, from the working directory.
 directory=Scripts
 // flat extraction into directory
-flat=false
+flat=true
 // files not to install
-ignore=.git,.gitignore,.simbapackage,.gitattributes
+ignore=.git,.gitignore,.simbapackage,.gitattributes,README.md
