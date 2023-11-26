@@ -10,6 +10,13 @@ Superheater is designed for efficient magic and smithing training, offering a sp
 ## Installation
 *Note*: Replace `USERNAME` with your Windows username in the file paths.
 
+**Add script as package**
+Open Simba and add new package according to the following images: https://github.com/TazE-scripts/Superheater
+![step_1](https://github.com/TazE-scripts/Superheater/assets/47065797/1dce0047-f391-43a7-b20b-e9dfb13dc2f9)
+
+![step_2](https://github.com/TazE-scripts/Superheater/assets/47065797/856d1402-21d5-4968-8ec0-aa1c184f4842)
+
+
 **Direct .simba Download**:
 1. Access the raw file [here](https://github.com/TazE-scripts/Superheater/raw/main/TazE_Superheater.simba).
 2. Right-click > `Save as...` or press `Ctrl + S`.
@@ -20,7 +27,7 @@ Superheater is designed for efficient magic and smithing training, offering a sp
 2. Click `Code` > `Download ZIP`.
 3. Unzip and move `Superheater` to the Simba scripts directory.
 
-## Crafting Tip
+## Script Tips
 - For cost efficiency, consider Iron Bars which can provide 3m smithing xp (level 15-84) with 99 magic, potentially without profit/loss.
 - For experience-focused training, Gold Bars with Gold Gauntlets are recommended for reaching 99 smithing with 99 magic, albeit with an estimated loss of over 40m.
 
