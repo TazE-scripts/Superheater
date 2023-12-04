@@ -1,5 +1,5 @@
 {$DEFINE SCRIPT_ID := '66d75db9-5f27-486c-9407-3b94ae676e9b'}
-{$DEFINE SCRIPT_REVISION := '4'}
+{$DEFINE SCRIPT_REVISION := '5'}
 {$I SRL-T/osr.simba}
 {$I WaspLib/osr.simba}
 
@@ -14,18 +14,12 @@ const
 
 //=============DEFAULT SETTINGS==============
 var
-  CurrentTask: string                   = 'Iron'; // Select bar
-  USE_COALBAG: Boolean                  = False;  // Steel,Mithril,Adamantite,Runite
-  USE_GUI: Boolean                      = True;   // Should use Wasp GUI
-  MOUSEOVERRIDE: Int32                  = 15;     // Set movement
-
-const
-  // Timing Constants (milliseconds)
-  MAGIC_OPEN_WAIT_MIN = 800;
-  MAGIC_OPEN_WAIT_MAX = 5000;
-  DEPOSIT_WAIT_MIN = 500;
-  DEPOSIT_WAIT_MAX = 2000;
-  CAST_XP_WAIT = 2000;
+  CurrentTask: string                   = 'Iron';        // Select bar
+  USE_COALBAG: Boolean                  = False;         // Steel,Mithril,Adamantite,Runite
+  USE_GUI: Boolean                      = True;          // Should use Wasp GUI
+  MOUSEOVERRIDE: Int32                  = 15;            // Set movement
+  CastAttemptReset: Integer             = 3;             // How many cast fails before bank
+  CastRune: String                      = 'Nature rune'; // If Bryophyta then change to 'Fire rune'
 
 type
   EState = (
@@ -43,7 +37,7 @@ type
   TSuperHeater = record(TBaseBankScript)
     State: EState;
     Spell: ERSSpell;
-    NatureRune, PrimaryOre,
+    Runes, PrimaryOre,
     SecondaryOre, Bar: TRSBankItem;
     SuperHeating: Boolean;
     CoalBag: TRSBankItem;
@@ -61,7 +55,7 @@ end;
 procedure TSuperHeater.SetupItems();
 begin
   Self.Spell := ERSSpell.SUPERHEAT_ITEM;
-  NatureRune := TRSBankItem.Setup('Nature rune', -1);
+  Runes := TRSBankItem.Setup(CastRune, -1);
   ItemCount := -1;
   if USE_COALBAG then CoalBag := TRSBankItem.Setup('Coal bag', 1);
 
@@ -155,60 +149,38 @@ begin
   end;
 end;
 
-function TSuperHeater.ChatMissingCoal(): Boolean;
-begin
-  Result := False;
-
-  if SpellCastFailed >= 3 then
-  begin
-    if not ChatButtons.GetButton(ERSChatButton.GAME_CHAT).Enabled() then
-      WaitUntil(ChatButtons.Open(ERSChatButton.GAME_CHAT), 500, 3000);
-
-    if Chat.FindMessage('heaps of coal') then
-      Result := True;
-  end;
-end;
-
 function TSuperHeater.CastSpell(): Boolean;
 begin
   Result := False; // Default result
+  // Exit if no primary ore left (track casts to minimize inventory search)
   if ItemCount <= 0 then Exit;
 
   XPBar.EarnedXP();
 
-  // Exit early if unable to cast the spell or if the inventory doesn't open
-  if not (Magic.CastSpell(Self.Spell) and WaitUntil(Inventory.IsOpen, 50, MAGIC_OPEN_WAIT_MAX)) then Exit;
+  // Exit early if unable to cast the spell or open inventory
+  if not (Magic.CastSpell(Self.Spell) and WaitUntil(Inventory.IsOpen, 300, 5000)) then Exit;
 
-  // Exit early if unable to click on the primary ore item
-  if not (Inventory.ClickItem(PrimaryOre.Item, '>') and WaitUntil(Magic.IsOpen(), 50, MAGIC_OPEN_WAIT_MAX)) then Exit;
+  // Exit early if unable to click primary ore
+  if not (Inventory.ClickItem(PrimaryOre.Item, '>') and WaitUntil(Magic.IsOpen(), 300, 5000)) then Exit;
 
-  // Check for XP gain
-  if WaitUntil(XPBar.EarnedXP(), 50, MAGIC_OPEN_WAIT_MAX) then
+  // Check for XP gain and decrement ItemCount if successful
+  if WaitUntil(XPBar.EarnedXP(), 300, 5000) then
   begin
     Result := True;
     Self.SuperHeating := True;
-    Dec(ItemCount); // Decrement ItemCount if XP is successfully gained
+    Self.SpellCastFailed := 0; // Reset the counter if succesful
+    Dec(ItemCount); // Decrement ItemCount on successful XP gain
   end;
 
   // Handle case when out of items
   if ItemCount <= 0 then Self.SuperHeating := False;
 end;
 
-
-procedure TSuperHeater.DepositRandomInventoryItems();
+function TSuperHeater.Deposit(): Boolean;
 var
-  Exclude_Items: TRSItemArray;
+  itemCount: Int32 := Inventory.CountItem(Bar.Item);
+  Exclude_Items: TRSItemArray := [Self.Runes.Item];
 begin
-  // Initialize the array with always-present items
-  Exclude_Items := [Self.PrimaryOre.Item, Self.NatureRune.Item];
-
-  // Conditionally add Secondary Ore if it's specified
-  if Self.SecondaryOre.Item <> '' then
-  begin
-    SetLength(Exclude_Items, Length(Exclude_Items) + 1);
-    Exclude_Items[High(Exclude_Items)] := Self.SecondaryOre.Item;
-  end;
-
   // Conditionally add Coal Bag if it's being used
   if USE_COALBAG then
   begin
@@ -216,27 +188,18 @@ begin
     Exclude_Items[High(Exclude_Items)] := Self.CoalBag.Item;
   end;
 
-  // Deposit random items excluding the ones specified
-  if Inventory.ContainsRandomItems(Exclude_Items) then
-    Bank.DepositRandomItems(Exclude_Items);
-end;
-
-
-function TSuperHeater.Deposit(): Boolean;
-var
-  itemCount: Int32 := Inventory.CountItem(Bar.Item);
-begin
-  // Call the helper function to deposit excluded items
-  Self.DepositRandomInventoryItems();
-
   // Deposit Bars
   if Result := Bank.DepositItem(Bar, True) then
   begin
-    if WaitUntil(Inventory.CountItem(Bar.Item) = 0, DEPOSIT_WAIT_MIN, DEPOSIT_WAIT_MAX) then
+    if WaitUntil(Inventory.CountItem(Bar.Item) = 0, 500, 2000) then
     begin
       Self.TotalActions += itemCount;
     end;
   end;
+
+  // Deposit random items excluding the ones specified
+  if Inventory.ContainsRandomItems(Exclude_Items) then
+    Bank.DepositRandomItems(Exclude_Items);
 end;
 
 procedure TSuperHeater.WithdrawMaterial();
@@ -244,8 +207,8 @@ begin
   // Deposit if there is anything that shouldn't be inside inventory
   Self.Deposit;
 
-  if not Inventory.ContainsItem(Self.NatureRune.Item) then
-    Self.Withdraw(Self.NatureRune);
+  if not Inventory.ContainsItem(Self.Runes.Item) then
+    Self.Withdraw(Self.Runes);
 
   if USE_COALBAG then
   begin
@@ -254,8 +217,8 @@ begin
 
   if Inventory.ContainsItem(Self.CoalBag.Item) then
   begin
-    Waituntil(Inventory.ClickItem(Self.CoalBag.Item, 'Empty'), DEPOSIT_WAIT_MIN, DEPOSIT_WAIT_MAX);
-    Waituntil(Inventory.ClickItem(Self.CoalBag.Item, 'Fill'), DEPOSIT_WAIT_MIN, DEPOSIT_WAIT_MAX);
+    Waituntil(Inventory.ClickItem(Self.CoalBag.Item, 'Empty'), 500, 2000);
+    Waituntil(Inventory.ClickItem(Self.CoalBag.Item, 'Fill'), 500, 2000);
   end
   end
   if SecondaryOre.Item <> '' then
@@ -271,8 +234,7 @@ end;
 
 function TSuperHeater.HasRequiredItems(): Boolean;
 begin
-  Wait(DEPOSIT_WAIT_MIN); // Deposit/withdraw to fast, fails check
-  Result := Inventory.ContainsItem(self.NatureRune.Item);
+  Result := WaitUntil(Inventory.ContainsItem(self.Runes.Item), 500, 2000);
 
   if Result then
     Result := Inventory.ContainsItem(self.PrimaryOre.Item);
@@ -283,7 +245,7 @@ end;
 
 procedure TSuperHeater.CollectRequiredItems();
 begin
-  Self.HandleCollectBox([self.NatureRune.Item]);
+  Self.HandleCollectBox([self.Runes.Item]);
   Self.HandleCollectBox([self.PrimaryOre.Item]);
 
   if self.SecondaryOre.Item <> '' then
@@ -319,7 +281,7 @@ begin
   if CollectBox.IsOpen() then
   begin
     if Self.CollectEmpty or HasRequiredItems() then
-      MainScreen.CloseInterface()
+      MainScreen.CloseInterface(True)
     else
       Self.CollectRequiredItems();
   end;
@@ -344,7 +306,7 @@ begin
     Exit(HandleActivity());
 
   // Check for consecutive spell casting failures
-  if (Self.SpellCastFailed >= 10) then
+  if (Self.SpellCastFailed >= CastAttemptReset) then
   begin
     Self.SpellCastFailed := 0; // Reset the counter after handling
     Exit(OPEN_BANK);
@@ -393,7 +355,7 @@ begin
       EState.DEPOSIT_PRODUCT: Self.Deposit();
       EState.OPEN_COLLECT: CollectBox.WalkOpen();
       EState.HANDLE_COLLECT: Self.CollectRequiredItems();
-      EState.CLOSE_INTERFACE: MainScreen.CloseInterface();
+      EState.CLOSE_INTERFACE: MainScreen.CloseInterface(True);
       EState.LEVEL_UP: Chat.HandleLevelUp();
       EState.CAST_SPELL: if not Self.CastSpell() then Inc(Self.SpellCastFailed);
       EState.END_SCRIPT: Break;
