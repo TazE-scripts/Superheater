@@ -61,51 +61,51 @@ begin
 
   if CurrentTask = 'Bronze' then
   begin
-    Bar := TRSBankItem.Setup('Bronze bar', -1);
     PrimaryOre := TRSBankItem.Setup('Tin ore', 13);
     SecondaryOre := TRSBankItem.Setup('Copper ore', 13);
+    Bar := TRSBankItem.Setup('Bronze bar', SecondaryOre.Quantity);
   end
   else if CurrentTask = 'Iron' then
   begin
-    Bar := TRSBankItem.Setup('Iron bar', -1);
     PrimaryOre := TRSBankItem.Setup('Iron ore', 27);
     SecondaryOre := TRSBankItem.Setup('', 0);  // No secondary ore
+    Bar := TRSBankItem.Setup('Iron bar', PrimaryOre.Quantity);
   end
   else if CurrentTask = 'Silver' then
   begin
-    Bar := TRSBankItem.Setup('Silver bar', -1);
     PrimaryOre := TRSBankItem.Setup('Silver ore', 27);
     SecondaryOre := TRSBankItem.Setup('', 0);  // No secondary ore
+    Bar := TRSBankItem.Setup('Silver bar', PrimaryOre.Quantity);
   end
   else if CurrentTask = 'Steel' then
   begin
-    Bar := TRSBankItem.Setup('Steel bar', -1);
     PrimaryOre := TRSBankItem.Setup('Iron ore', GetOreQuantity(USE_COALBAG, 9, 17));
     SecondaryOre := TRSBankItem.Setup('Coal', GetOreQuantity(USE_COALBAG, 18, -1));
+    Bar := TRSBankItem.Setup('Steel bar', SecondaryOre.Quantity);
   end
   else if CurrentTask = 'Gold' then
   begin
-    Bar := TRSBankItem.Setup('Gold bar', -1);
     PrimaryOre := TRSBankItem.Setup('Gold ore', 27);
     SecondaryOre := TRSBankItem.Setup('', 0);  // No secondary ore
+    Bar := TRSBankItem.Setup('Gold bar', PrimaryOre.Quantity);
   end
   else if CurrentTask = 'Mithril' then
   begin
-    Bar := TRSBankItem.Setup('Mithril bar', -1);
     PrimaryOre := TRSBankItem.Setup('Mithril ore', GetOreQuantity(USE_COALBAG, 5, 10));
     SecondaryOre := TRSBankItem.Setup('Coal', GetOreQuantity(USE_COALBAG, 20, -1));
+    Bar := TRSBankItem.Setup('Mithril bar', SecondaryOre.Quantity);
   end
   else if CurrentTask = 'Adamantite' then
   begin
-    Bar := TRSBankItem.Setup('Adamantite bar', -1);
     PrimaryOre := TRSBankItem.Setup('Adamantite ore', GetOreQuantity(USE_COALBAG, 3, 7));
     SecondaryOre := TRSBankItem.Setup('Coal', GetOreQuantity(USE_COALBAG, 18, -1));
+    Bar := TRSBankItem.Setup('Adamantite bar', SecondaryOre.Quantity);
   end
   else if CurrentTask = 'Runite' then
   begin
-    Bar := TRSBankItem.Setup('Runite bar', -1);
     PrimaryOre := TRSBankItem.Setup('Runite ore', GetOreQuantity(USE_COALBAG, 3, 5));
     SecondaryOre := TRSBankItem.Setup('Coal', GetOreQuantity(USE_COALBAG, 24, -1));
+    Bar := TRSBankItem.Setup('Runite bar', SecondaryOre.Quantity);
   end
   else
   begin
@@ -115,7 +115,7 @@ end;
 
 procedure TAntiban.Setup(); override;
 begin
-  Self.Skills := [ERSSkill.MAGIC, ERSSkill.TOTAL];
+  Self.Skills := [ERSSkill.MAGIC, ERSSkill.SMITHING, ERSSkill.TOTAL];
   Self.MinZoom := 15;
   Self.MaxZoom := 85;
   inherited;
@@ -126,9 +126,6 @@ begin
   inherited;
   Self.RSW.SetupNamedRegion();
   Self.SetupItems();
-  WLSettings.Antiban.Enabled        := True;
-  WLSettings.Breaks                 := True;
-  WLSettings.Sleep.Enabled          := True;
   WLSettings.RemoteInput.Enabled    := True;
   WLSettings.RemoteInput.HUDReport  := False;
   if MOUSEOVERRIDE <> 0 then
@@ -140,13 +137,16 @@ begin
   begin
     Options.SetMaxBrightness;
     WriteLn('Current brightness level: ' + IntToStr(Options.GetBrightnessLevel));
-  end
+  end;
 
   if RSClient.DetectClientMode() <> ERSClientMode.FIXED then
   begin
     WriteLn('The client must be running in FIXED mode. Please change the mode and restart the script.');
     TerminateScript();
   end;
+  //Remove cooking guild banks
+  RSObjects.BankWood3.Coordinates.Remove([7981, 2651], True);
+  RSObjects.BankWood3.Coordinates.Remove([7985, 2651], True);
 end;
 
 function TSuperHeater.CastSpell(): Boolean;
@@ -154,8 +154,6 @@ begin
   Result := False; // Default result
   // Exit if no primary ore left (track casts to minimize inventory search)
   if ItemCount <= 0 then Exit;
-
-  XPBar.EarnedXP();
 
   // Exit early if unable to cast the spell or open inventory
   if not (Magic.CastSpell(Self.Spell) and WaitUntil(Inventory.IsOpen, 300, 5000)) then Exit;
@@ -297,7 +295,7 @@ end;
 
 function TSuperHeater.SafeBankOpen(): Boolean;
 begin
-  Result := Magic.Deselect and Bank.WalkOpen;
+  Result := Magic.Deselect and Bank.Open;
 end;
 
 function TSuperHeater.GetState(): EState;
@@ -353,7 +351,7 @@ begin
       EState.OPEN_BANK: self.SafeBankOpen();
       EState.WITHDRAW_MATERIAL: Self.WithdrawMaterial();
       EState.DEPOSIT_PRODUCT: Self.Deposit();
-      EState.OPEN_COLLECT: CollectBox.WalkOpen();
+      EState.OPEN_COLLECT: CollectBox.Open();
       EState.HANDLE_COLLECT: Self.CollectRequiredItems();
       EState.CLOSE_INTERFACE: MainScreen.CloseInterface(True);
       EState.LEVEL_UP: Chat.HandleLevelUp();
