@@ -131,8 +131,6 @@ begin
   if MOUSEOVERRIDE <> 0 then
     Mouse.Speed := MOUSEOVERRIDE;
 
-  if Magic.Open and Magic.IsFiltered then WaitUntil(Magic.DisableFilters, 1000, 10000);
-
   if Options.GetBrightnessLevel < 100 then
   begin
     Options.SetMaxBrightness;
